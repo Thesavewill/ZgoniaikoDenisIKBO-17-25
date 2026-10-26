@@ -1,78 +1,103 @@
 import shlex
-import tkinter as tk
-from tkinter import scrolledtext
+import sys
+
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 
-class ShellEmulatorGUI:
-
-    def __init__(self, root: tk.Tk, vfs_name: str = "default_vfs") -> None:
-        self.root = root
+class ShellEmulatorWindow(QMainWindow):
+    def __init__(self, vfs_name: str = "default_vfs") -> None:
+        super().__init__()
         self.vfs_name = vfs_name
-
-        self.root.title(f"VFS Emulator — [{self.vfs_name}]")
-        self.root.geometry("750x500")
-        self.root.configure(bg="#1e1e1e")
+        self.setWindowTitle(f"VFS Emulator — [{self.vfs_name}]")
+        self.resize(1000, 500)
 
         self._setup_ui()
+        self._apply_styles()
         self._print_welcome()
 
     def _setup_ui(self) -> None:
-        self.output_area = scrolledtext.ScrolledText(
-            self.root,
-            wrap=tk.WORD,
-            bg="#1e1e1e",
-            fg="#d4d4d4",
-            font=("Consolas", 11),
-            state=tk.DISABLED,
-            borderwidth=0,
-            highlightthickness=0,
-        )
-        self.output_area.pack(
-            padx=10, pady=(10, 5), fill=tk.BOTH, expand=True
-        )
+        central_widget = QWidget(self)
+        self.setCentralWidget(central_widget)
 
-        input_frame = tk.Frame(self.root, bg="#1e1e1e")
-        input_frame.pack(padx=10, pady=(0, 10), fill=tk.X)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
 
-        self.prompt_label = tk.Label(
-            input_frame,
-            text=f"user@{self.vfs_name}:~$ ",
-            bg="#1e1e1e",
-            fg="#4ec9b0",
-            font=("Consolas", 11, "bold"),
-        )
-        self.prompt_label.pack(side=tk.LEFT)
+        font = QFont("Consolas", 11)
 
-        self.input_entry = tk.Entry(
-            input_frame,
-            bg="#2d2d2d",
-            fg="#ffffff",
-            insertbackground="#ffffff",
-            font=("Consolas", 11),
-            relief=tk.FLAT,
+        self.output_area = QTextEdit(self)
+        self.output_area.setReadOnly(True)
+        self.output_area.setFont(font)
+        main_layout.addWidget(self.output_area)
+
+        input_layout = QHBoxLayout()
+        input_layout.setSpacing(5)
+
+        prompt_font = QFont("Consolas", 11)
+        prompt_font.setBold(True)
+
+        self.prompt_label = QLabel(f"user@{self.vfs_name}:~$ ", self)
+        self.prompt_label.setFont(prompt_font)
+        input_layout.addWidget(self.prompt_label)
+
+        self.input_entry = QLineEdit(self)
+        self.input_entry.setFont(font)
+        self.input_entry.returnPressed.connect(self._on_enter)
+        input_layout.addWidget(self.input_entry)
+
+        main_layout.addLayout(input_layout)
+        self.input_entry.setFocus()
+
+    def _apply_styles(self) -> None:
+        self.setStyleSheet(
+            """
+            QMainWindow, QWidget {
+                background-color: #1e1e1e;
+            }
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                border: none;
+            }
+            QLabel {
+                color: #4ec9b0;
+            }
+            QLineEdit {
+                color: #ffffff;
+                border-radius: 3px;
+                padding: 2px;
+            }
+            """
         )
-        self.input_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
-        self.input_entry.bind("<Return>", self._on_enter)
-        self.input_entry.focus_set()
 
     def _print_welcome(self) -> None:
         self.write_output(
             f"Эмулятор оболочки запущен. Имя VFS: {self.vfs_name}\n"
             "Доступные команды: ls, cd, exit.\n"
-            + "-" * 60
+            + "-" * 80
         )
 
     def write_output(self, text: str) -> None:
-        self.output_area.configure(state=tk.NORMAL)
-        self.output_area.insert(tk.END, text + "\n")
-        self.output_area.see(tk.END)
-        self.output_area.configure(state=tk.DISABLED)
+        self.output_area.append(text)
+        scrollbar = self.output_area.verticalScrollBar()
+        if scrollbar is not None:
+            scrollbar.setValue(scrollbar.maximum())
 
-    def _on_enter(self, event: tk.Event) -> None:
-        raw_command = self.input_entry.get()
-        self.input_entry.delete(0, tk.END)
+    def _on_enter(self) -> None:
+        raw_command = self.input_entry.text()
+        self.input_entry.clear()
 
-        prompt = self.prompt_label.cget("text")
+        prompt = self.prompt_label.text()
         self.write_output(f"{prompt}{raw_command}")
 
         if not raw_command.strip():
@@ -101,7 +126,7 @@ class ShellEmulatorGUI:
                     "Ошибка: exit: слишком много аргументов."
                 )
                 return False
-            self.root.destroy()
+            self.close()
             return True
 
         if cmd_name == "ls":
@@ -114,8 +139,9 @@ class ShellEmulatorGUI:
         return False
 
     def _cmd_ls(self, args: list[str]) -> bool:
+        valid_flags = ("-l", "-a", "-la", "-al")
         for arg in args:
-            if arg.startswith("-") and arg not in ("-l", "-a", "-la", "-al"):
+            if arg.startswith("-") and arg not in valid_flags:
                 self.write_output(
                     f"Ошибка: ls: неверный ключ '{arg}'."
                 )
@@ -136,9 +162,10 @@ class ShellEmulatorGUI:
 
 
 def main() -> None:
-    root = tk.Tk()
-    ShellEmulatorGUI(root, vfs_name="my_vfs")
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = ShellEmulatorWindow(vfs_name="my_vfs")
+    window.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
