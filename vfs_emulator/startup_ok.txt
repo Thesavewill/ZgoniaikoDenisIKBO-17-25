@@ -1,0 +1,4 @@
+ls
+ls -la "/home/user/Мои документы"
+cd "/var/log"
+ls -a

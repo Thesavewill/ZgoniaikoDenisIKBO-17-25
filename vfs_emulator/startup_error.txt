@@ -1,0 +1,3 @@
+ls -l
+cd /folder1 /folder2
+cd /etc

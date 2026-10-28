@@ -1,6 +1,9 @@
+import argparse
 import shlex
 import sys
+from pathlib import Path
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QApplication,
@@ -15,15 +18,26 @@ from PyQt6.QtWidgets import (
 
 
 class ShellEmulatorWindow(QMainWindow):
-    def __init__(self, vfs_name: str = "default_vfs") -> None:
+    def __init__(
+        self,
+        vfs_path: str | None = None,
+        script_path: str | None = None,
+    ) -> None:
         super().__init__()
-        self.vfs_name = vfs_name
+        self.vfs_path = vfs_path
+        self.script_path = script_path
+        self.vfs_name = Path(vfs_path).name if vfs_path else "default_vfs"
+
         self.setWindowTitle(f"VFS Emulator — [{self.vfs_name}]")
         self.resize(1000, 500)
 
         self._setup_ui()
         self._apply_styles()
+        self._print_debug_config()
         self._print_welcome()
+
+        if self.script_path:
+            QTimer.singleShot(0, self._run_startup_script)
 
     def _setup_ui(self) -> None:
         central_widget = QWidget(self)
@@ -80,12 +94,56 @@ class ShellEmulatorWindow(QMainWindow):
             """
         )
 
+    def _print_debug_config(self) -> None:
+        vfs_val = self.vfs_path if self.vfs_path else "не задан"
+        script_val = self.script_path if self.script_path else "не задан"
+        self.write_output(
+            "Заданные параметры при запуске:\n"
+            f"  Путь к VFS (--vfs): {vfs_val}\n"
+            f"  Путь к стартовому скрипту (--script): {script_val}\n"
+            + "-" * 80
+        )
+
     def _print_welcome(self) -> None:
         self.write_output(
             f"Эмулятор оболочки запущен. Имя VFS: {self.vfs_name}\n"
             "Доступные команды: ls, cd, exit.\n"
             + "-" * 80
         )
+
+    def _run_startup_script(self) -> None:
+        if not self.script_path:
+            return
+
+        path = Path(self.script_path)
+        if not path.is_file():
+            self.write_output(
+                "Ошибка исполнения стартового скрипта: "
+                f"файл '{self.script_path}' не найден."
+            )
+            return
+
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError as err:
+            self.write_output(
+                f"Ошибка чтения стартового скрипта: {err}"
+            )
+            return
+
+        prompt = self.prompt_label.text()
+        for line_num, raw_line in enumerate(lines, start=1):
+            command = raw_line.strip()
+            if not command:
+                continue
+
+            self.write_output(f"{prompt}{command}")
+            if not self.execute_command(command):
+                self.write_output(
+                    "Ошибка во время исполнения стартового скрипта "
+                    f"(строка {line_num}): выполнение остановлено."
+                )
+                break
 
     def write_output(self, text: str) -> None:
         self.output_area.append(text)
@@ -161,9 +219,34 @@ class ShellEmulatorWindow(QMainWindow):
         return True
 
 
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
+    parser = argparse.ArgumentParser(
+        description="Эмулятор языка оболочки ОС"
+    )
+    parser.add_argument(
+        "-v",
+        "--vfs",
+        type=str,
+        default=None,
+        help="Путь к физическому расположению VFS",
+    )
+    parser.add_argument(
+        "-s",
+        "--script",
+        type=str,
+        default=None,
+        help="Путь к стартовому скрипту",
+    )
+    return parser.parse_known_args()
+
+
 def main() -> None:
-    app = QApplication(sys.argv)
-    window = ShellEmulatorWindow(vfs_name="my_vfs")
+    cli_args, qt_args = parse_args()
+    app = QApplication([sys.argv[0], *qt_args])
+    window = ShellEmulatorWindow(
+        vfs_path=cli_args.vfs,
+        script_path=cli_args.script,
+    )
     window.show()
     sys.exit(app.exec())
 
