@@ -1,0 +1,10 @@
+path,type,content
+/motd,file,0JTQvtCx0YDQviDQv9C+0LbQsNC70L7QstCw0YLRjCDQsiBWRlMh
+/home,dir,
+/home/user,dir,
+/home/user/projects,dir,
+/home/user/projects/app.py,file,SGVsbG8gV29ybGQ=
+/var,dir,
+/var/log,dir,
+/var/log/nginx,dir,
+/var/log/nginx/access.log,file,V2VsY29tZSB0byBWRlMh

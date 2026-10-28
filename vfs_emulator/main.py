@@ -1,7 +1,10 @@
 import argparse
+import base64
+import binascii
+import csv
 import shlex
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QFont
@@ -17,6 +20,163 @@ from PyQt6.QtWidgets import (
 )
 
 
+class VFSNode:
+    def __init__(
+        self,
+        name: str,
+        node_type: str,
+        content: bytes = b"",
+    ) -> None:
+        self.name = name
+        self.node_type = node_type
+        self.content = content
+        self.children: dict[str, VFSNode] = {}
+
+
+class VirtualFileSystem:
+    def __init__(self) -> None:
+        self.root = VFSNode("/", "dir")
+        self.is_loaded = False
+
+    def load_from_csv(self, file_path: str) -> None:
+        path = Path(file_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"файл '{file_path}' не найден.")
+
+        new_root = VFSNode("/", "dir")
+
+        try:
+            with path.open("r", encoding="utf-8", newline="") as csv_file:
+                reader = csv.reader(csv_file)
+                header = next(reader, None)
+                if header != ["path", "type", "content"]:
+                    raise ValueError(
+                        "неверный заголовок CSV "
+                        "(ожидается: path,type,content)."
+                    )
+
+                for line_num, row in enumerate(reader, start=2):
+                    if len(row) != 3:
+                        raise ValueError(
+                            f"строка {line_num}: ожидается 3 столбца."
+                        )
+                    raw_path, node_type, b64_content = row
+                    self._insert_node(
+                        new_root,
+                        raw_path.strip(),
+                        node_type.strip(),
+                        b64_content.strip(),
+                        line_num,
+                    )
+        except csv.Error as err:
+            raise ValueError(f"ошибка чтения CSV: {err}") from err
+        except UnicodeDecodeError as err:
+            raise ValueError("файл должен быть в кодировке UTF-8.") from err
+
+        self.root = new_root
+        self.is_loaded = True
+
+    def _insert_node(
+        self,
+        root: VFSNode,
+        raw_path: str,
+        node_type: str,
+        b64_content: str,
+        line_num: int,
+    ) -> None:
+        if not raw_path.startswith("/"):
+            raise ValueError(
+                f"строка {line_num}: путь '{raw_path}' "
+                "должен начинаться с '/'."
+            )
+
+        if node_type not in ("dir", "file"):
+            raise ValueError(
+                f"строка {line_num}: неизвестный тип '{node_type}'."
+            )
+
+        if node_type == "dir":
+            if b64_content:
+                raise ValueError(
+                    f"строка {line_num}: у папки не может быть контента."
+                )
+            content_bytes = b""
+        else:
+            try:
+                content_bytes = base64.b64decode(
+                    b64_content.encode("ascii"),
+                    validate=True,
+                )
+            except (binascii.Error, UnicodeEncodeError) as err:
+                raise ValueError(
+                    f"строка {line_num}: некорректные данные base64."
+                ) from err
+
+        posix_path = PurePosixPath(raw_path)
+        parts = [p for p in posix_path.parts if p != "/"]
+        if not parts:
+            return
+
+        current = root
+        for part in parts[:-1]:
+            if part not in current.children:
+                current.children[part] = VFSNode(part, "dir")
+            elif current.children[part].node_type != "dir":
+                raise ValueError(
+                    f"строка {line_num}: '{part}' является файлом, "
+                    "а не папкой."
+                )
+            current = current.children[part]
+
+        target_name = parts[-1]
+        if target_name in current.children:
+            existing = current.children[target_name]
+            if existing.node_type != node_type:
+                raise ValueError(
+                    f"строка {line_num}: конфликт типов для '{raw_path}'."
+                )
+            existing.content = content_bytes
+        else:
+            current.children[target_name] = VFSNode(
+                target_name,
+                node_type,
+                content_bytes,
+            )
+
+    def save_to_csv(self, target_path: str) -> None:
+        if not self.is_loaded:
+            raise RuntimeError("VFS не загружена в память.")
+
+        rows: list[list[str]] = [["path", "type", "content"]]
+        self._collect_rows(self.root, PurePosixPath("/"), rows)
+
+        out_path = Path(target_path)
+        with out_path.open("w", encoding="utf-8", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerows(rows)
+
+    def _collect_rows(
+        self,
+        node: VFSNode,
+        current_path: PurePosixPath,
+        rows: list[list[str]],
+    ) -> None:
+        for name, child in sorted(node.children.items()):
+            child_path = current_path / name
+            b64_str = ""
+            if child.node_type == "file":
+                b64_str = base64.b64encode(child.content).decode("ascii")
+            rows.append([str(child_path), child.node_type, b64_str])
+            if child.node_type == "dir":
+                self._collect_rows(child, child_path, rows)
+
+    def get_motd(self) -> str | None:
+        motd_node = self.root.children.get("motd")
+        if motd_node and motd_node.node_type == "file":
+            return motd_node.content.decode("utf-8", errors="replace")
+        return None
+
+
 class ShellEmulatorWindow(QMainWindow):
     def __init__(
         self,
@@ -27,6 +187,7 @@ class ShellEmulatorWindow(QMainWindow):
         self.vfs_path = vfs_path
         self.script_path = script_path
         self.vfs_name = Path(vfs_path).name if vfs_path else "default_vfs"
+        self.vfs = VirtualFileSystem()
 
         self.setWindowTitle(f"VFS Emulator — [{self.vfs_name}]")
         self.resize(1000, 500)
@@ -34,6 +195,7 @@ class ShellEmulatorWindow(QMainWindow):
         self._setup_ui()
         self._apply_styles()
         self._print_debug_config()
+        self._init_vfs()
         self._print_welcome()
 
         if self.script_path:
@@ -104,10 +266,33 @@ class ShellEmulatorWindow(QMainWindow):
             + "-" * 80
         )
 
+    def _init_vfs(self) -> None:
+        if not self.vfs_path:
+            return
+
+        try:
+            self.vfs.load_from_csv(self.vfs_path)
+            self.write_output(
+                f"VFS '{self.vfs_name}' успешно загружена в память."
+            )
+            motd_text = self.vfs.get_motd()
+            if motd_text is not None:
+                self.write_output(f"[MOTD] {motd_text}")
+        except FileNotFoundError as err:
+            self.write_output(f"Ошибка загрузки VFS: {err}")
+        except ValueError as err:
+            self.write_output(
+                f"Ошибка загрузки VFS (неверный формат): {err}"
+            )
+        except OSError as err:
+            self.write_output(f"Ошибка чтения файла VFS: {err}")
+
+        self.write_output("-" * 80)
+
     def _print_welcome(self) -> None:
         self.write_output(
             f"Эмулятор оболочки запущен. Имя VFS: {self.vfs_name}\n"
-            "Доступные команды: ls, cd, exit.\n"
+            "Доступные команды: ls, cd, vfs-save, exit.\n"
             + "-" * 80
         )
 
@@ -193,6 +378,9 @@ class ShellEmulatorWindow(QMainWindow):
         if cmd_name == "cd":
             return self._cmd_cd(args)
 
+        if cmd_name == "vfs-save":
+            return self._cmd_vfs_save(args)
+
         self.write_output(f"Ошибка: команда '{cmd_name}' не найдена.")
         return False
 
@@ -216,6 +404,25 @@ class ShellEmulatorWindow(QMainWindow):
             return False
 
         self.write_output(f"[Заглушка] Команда: 'cd', Аргументы: {args}")
+        return True
+
+    def _cmd_vfs_save(self, args: list[str]) -> bool:
+        if len(args) != 1:
+            self.write_output(
+                "Ошибка: vfs-save: укажите ровно один путь к файлу."
+            )
+            return False
+
+        target_path = args[0]
+        try:
+            self.vfs.save_to_csv(target_path)
+        except (RuntimeError, OSError) as err:
+            self.write_output(f"Ошибка сохранения VFS: {err}")
+            return False
+
+        self.write_output(
+            f"Состояние VFS успешно сохранено в '{target_path}'."
+        )
         return True
 
 

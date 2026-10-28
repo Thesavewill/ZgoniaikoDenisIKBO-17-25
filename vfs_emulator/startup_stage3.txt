@@ -1,0 +1,6 @@
+ls
+ls -la "/home/user/projects"
+cd "/var/log/nginx"
+vfs-save "saved_vfs_backup.csv"
+vfs-save
+cd /too /many
