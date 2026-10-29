@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.vscode/
+.idea/
+*.zip
+*.tar.gz
+*.rar
+*.exe
+saved_vfs_backup.csv
