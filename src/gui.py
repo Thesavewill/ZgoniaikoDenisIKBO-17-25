@@ -1,7 +1,7 @@
 """Модуль графического интерфейса и обработчика команд эмулятора."""
 
-from pathlib import Path
 import shlex
+from pathlib import Path
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QFont
@@ -295,3 +295,4 @@ class ShellEmulatorWindow(QMainWindow):
             f"Состояние VFS успешно сохранено в '{target_path}'."
         )
         return True
+    
