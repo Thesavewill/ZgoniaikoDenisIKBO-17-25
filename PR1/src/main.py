@@ -5,7 +5,7 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
-from gui import ShellEmulatorWindow
+from PR1.src.gui import ShellEmulatorWindow
 
 
 def parse_args() -> tuple[argparse.Namespace, list[str]]:

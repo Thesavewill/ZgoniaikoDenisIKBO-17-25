@@ -1,12 +1,35 @@
+# Служебные файлы Python (Г3)
 __pycache__/
 *.py[cod]
 *$py.class
+.Python
 .venv/
 venv/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Артефакты сборки (Г4)
+build/
+dist/
+*.egg-info/
+
+# Настройки редакторов кода (Г5)
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Архивы и бинарные файлы (Г1, Г2)
 *.zip
+*.tar
 *.tar.gz
+*.tgz
 *.rar
+*.7z
 *.exe
-saved_vfs_backup.csv
+*.dll
+*.so
+*.dylib

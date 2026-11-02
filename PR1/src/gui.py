@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from vfs import VirtualFileSystem
+from PR1.src.vfs import VirtualFileSystem
 
 WINDOW_WIDTH = 1000
 WINDOW_HEIGHT = 500
