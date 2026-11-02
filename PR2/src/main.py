@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from src.config import AppConfig, ConfigError, load_config
+from src.fetcher import FetchError, fetch_package_data
 
 EXIT_SUCCESS = 0
 EXIT_ERROR = 1
@@ -25,10 +26,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def print_config(config: AppConfig) -> None:
-    """Выводит все настраиваемые параметры в формате ключ-значение."""
-    for key, value in config.to_dict().items():
-        print(f"{key}={value}")
+def print_dependencies(config: AppConfig) -> int:
+    """Получает и выводит прямые зависимости пакета."""
+    try:
+        deps = fetch_package_data(
+            config.repository, config.package_name, config.package_version
+        )
+    except FetchError as exc:
+        print(f"Ошибка получения зависимостей: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    print(
+        f"Прямые зависимости {config.package_name}@"
+        f"{config.package_version}:"
+    )
+    if not deps:
+        print("  (нет зависимостей)")
+    for name, ver in deps.items():
+        print(f"  {name}: {ver}")
+    return EXIT_SUCCESS
 
 
 def run_cli(argv: Sequence[str] | None = None) -> int:
@@ -41,8 +57,7 @@ def run_cli(argv: Sequence[str] | None = None) -> int:
         print(f"Ошибка конфигурации: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
-    print_config(config)
-    return EXIT_SUCCESS
+    return print_dependencies(config)
 
 
 if __name__ == "__main__":
