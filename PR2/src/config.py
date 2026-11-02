@@ -1,8 +1,8 @@
 """Модуль загрузки и валидации конфигурации из TOML-файла."""
 
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
 from typing import Any
 
 MIN_DEPTH = 1

@@ -1,0 +1,27 @@
+{
+  "A": {
+    "dependencies": {
+      "B": "1.0.0",
+      "C": "1.0.0"
+    }
+  },
+  "B": {
+    "dependencies": {
+      "D": "1.0.0",
+      "E": "1.0.0"
+    }
+  },
+  "C": {
+    "dependencies": {
+      "A": "1.0.0"
+    }
+  },
+  "D": {
+    "dependencies": {}
+  },
+  "E": {
+    "dependencies": {
+      "BAD_PKG": "1.0.0"
+    }
+  }
+}

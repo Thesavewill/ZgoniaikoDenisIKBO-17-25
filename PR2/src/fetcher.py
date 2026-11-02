@@ -9,21 +9,25 @@ class FetchError(Exception):
     """Исключение при ошибках получения данных пакета."""
 
 
+def _fetch_test_data(repo_path: str, pkg_name: str) -> dict[str, str]:
+    """Получает зависимости из локального тестового файла."""
+    try:
+        with open(repo_path, "r", encoding="utf-8") as file:
+            data = json.load(file)
+        pkg_data = data.get(pkg_name, {})
+        return pkg_data.get("dependencies", {})
+    except (OSError, json.JSONDecodeError) as exc:
+        raise FetchError(f"Ошибка чтения файла {repo_path}: {exc}") from exc
+
+
 def fetch_package_data(
-    registry_url: str, package_name: str, version: str
+    repository: str, package_name: str, version: str, test_mode: bool
 ) -> dict[str, str]:
-    """
-    Получает прямые зависимости для заданной версии пакета.
+    """Получает прямые зависимости пакета."""
+    if test_mode:
+        return _fetch_test_data(repository, package_name)
 
-    Args:
-        registry_url: Базовый URL репозитория.
-        package_name: Имя npm пакета.
-        version: Версия пакета.
-
-    Returns:
-        Словарь прямых зависимостей {имя: версия}.
-    """
-    url = f"{registry_url.rstrip('/')}/{package_name}/{version}"
+    url = f"{repository.rstrip('/')}/{package_name}/{version}"
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=10) as response:
