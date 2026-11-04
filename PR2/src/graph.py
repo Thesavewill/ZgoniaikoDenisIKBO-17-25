@@ -11,6 +11,17 @@ def _clean_version(version: str) -> str:
     return match.group(1) if match else "latest"
 
 
+def get_reverse_dependencies(
+    graph: dict[str, list[str]], target: str
+) -> list[str]:
+    """Возвращает отсортированный список пакетов, зависящих от заданного."""
+    reverse_deps = []
+    for node, edges in graph.items():
+        if target in edges:
+            reverse_deps.append(node)
+    return sorted(reverse_deps)
+
+
 def build_dependency_graph(
     start_pkg: str,
     start_ver: str,
