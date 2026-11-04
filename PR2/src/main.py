@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.config import AppConfig, ConfigError, load_config
 from src.graph import build_dependency_graph, get_reverse_dependencies
+from src.visualizer import generate_dot_source, render_svg
 
 EXIT_SUCCESS = 0
 EXIT_ERROR = 1
@@ -32,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def print_graph(config: AppConfig, reverse_target: str | None) -> int:
-    """Строит граф и выводит его или обратные зависимости пакета."""
+    """Строит граф и рендерит SVG или выводит обратные зависимости."""
     graph = build_dependency_graph(
         start_pkg=config.package_name,
         start_ver=config.package_version,
@@ -52,13 +53,14 @@ def print_graph(config: AppConfig, reverse_target: str | None) -> int:
             print("  (нет обратных зависимостей)")
         return EXIT_SUCCESS
 
-    print(f"Граф зависимостей (глубина {config.max_depth}):")
-    for node, edges in graph.items():
-        if edges:
-            print(f"  {node} -> {', '.join(edges)}")
-        else:
-            print(f"  {node} -> (нет зависимостей)")
-            
+    dot_source = generate_dot_source(graph)
+    try:
+        render_svg(dot_source, config.output_file)
+        print(f"DOT-код сгенерирован. SVG сохранен в {config.output_file}")
+    except RuntimeError as exc:
+        print(f"Ошибка визуализации: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
     return EXIT_SUCCESS
 
 

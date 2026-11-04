@@ -1,7 +1,0 @@
-package_name = "A"
-repository = "mock_repo.json"
-test_mode = true
-package_version = "1.0.0"
-output_file = "dependencies.svg"
-max_depth = 4
-filter_substring = "BAD"
