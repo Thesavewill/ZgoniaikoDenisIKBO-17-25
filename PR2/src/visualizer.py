@@ -5,7 +5,14 @@ import subprocess
 
 def generate_dot_source(graph: dict[str, list[str]]) -> str:
     """Генерирует текстовое представление графа на языке DOT."""
-    lines = ["digraph G {", '  node [shape="box", style="rounded"];']
+    lines = [
+        "digraph G {",
+        '  rankdir="TB";',
+        '  splines="ortho";',
+        '  nodesep=0.15;',
+        '  ranksep=0.8;',
+        '  node [shape="box", style="rounded", fontname="Helvetica", height=0.3];'
+    ]
     for node, edges in graph.items():
         if not edges:
             lines.append(f'  "{node}";')

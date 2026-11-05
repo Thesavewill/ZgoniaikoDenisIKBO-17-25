@@ -3,5 +3,5 @@ repository = "https://registry.npmjs.org"
 test_mode = false
 package_version = "4.19.2"
 output_file = "dependencies.svg"
-max_depth = 2
+max_depth = 3
 filter_substring = ""
