@@ -11,8 +11,10 @@ def generate_dot_source(graph: dict[str, list[str]]) -> str:
         '  splines="ortho";',
         '  nodesep=0.15;',
         '  ranksep=0.8;',
-        '  node [shape="box", style="rounded", fontname="Helvetica", height=0.3];'
+        '  node [shape="box", style="rounded", fontname="Helvetica"];',
+        '  node [height=0.3];'
     ]
+
     for node, edges in graph.items():
         if not edges:
             lines.append(f'  "{node}";')
