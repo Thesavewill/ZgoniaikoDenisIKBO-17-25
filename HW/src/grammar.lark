@@ -1,0 +1,20 @@
+start: value
+
+?value: number
+      | table
+
+table: "table" "(" [pair ("," pair)* ","?] ")"
+pair: NAME "=>" value
+
+number: NUMBER
+
+NAME: /[_a-zA-Z][a-zA-Z0-9]*/
+NUMBER: /\d+\.\d*/
+
+SINGLE_COMMENT: /#[^\n]*/
+MULTI_COMMENT: /\{\{!(.|\n)*?\}\}/
+
+%import common.WS
+%ignore WS
+%ignore SINGLE_COMMENT
+%ignore MULTI_COMMENT
