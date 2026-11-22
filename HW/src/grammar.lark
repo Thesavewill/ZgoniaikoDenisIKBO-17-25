@@ -6,13 +6,24 @@ const_decl: NAME "is" value
       | table
       | const_expr
 
-const_expr: "$[" NAME "]"
+const_expr: "$[" expr_item+ "]"
+
+?expr_item: number
+          | const_ref
+          | op
+          | func
+
+const_ref: NAME
+op: OP
+func: FUNC
 
 table: "table" "(" [pair ("," pair)* ","?] ")"
 pair: NAME "=>" value
 
 number: NUMBER
 
+OP: "+" | "-" | "*" | "/"
+FUNC: "sqrt()" | "pow()"
 NAME: /[_a-zA-Z][a-zA-Z0-9]*/
 NUMBER: /\d+\.\d*/
 

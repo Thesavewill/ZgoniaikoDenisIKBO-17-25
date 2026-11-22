@@ -6,19 +6,10 @@ from typing import Any
 from lark import Lark, LarkError, Transformer
 from lark.exceptions import VisitError
 
+from .errors import ConfigError, ConfigSyntaxError
+from .evaluator import ConstRef, Operator, evaluate_postfix
+
 GRAMMAR_PATH = Path(__file__).parent / "grammar.lark"
-
-
-class ConfigError(Exception):
-    """Базовое исключение для ошибок трансляции конфигурации."""
-
-
-class ConfigSyntaxError(ConfigError):
-    """Исключение при обнаружении синтаксической ошибки во входном тексте."""
-
-
-class ConfigEvaluationError(ConfigError):
-    """Исключение при ошибке вычисления констант и выражений."""
 
 
 class ConfigTransformer(Transformer):
@@ -38,12 +29,21 @@ class ConfigTransformer(Transformer):
         name = str(items[0])
         self.constants[name] = items[1]
 
+    def const_ref(self, items: list[Any]) -> ConstRef:
+        """Создаёт ссылку на константу внутри выражения."""
+        return ConstRef(str(items[0]))
+
+    def op(self, items: list[Any]) -> Operator:
+        """Создаёт оператор для постфиксного выражения."""
+        return Operator(str(items[0]))
+
+    def func(self, items: list[Any]) -> Operator:
+        """Создаёт функцию для постфиксного выражения."""
+        return Operator(str(items[0]))
+
     def const_expr(self, items: list[Any]) -> Any:
-        """Возвращает значение константы по её имени."""
-        name = str(items[0])
-        if name not in self.constants:
-            raise ConfigEvaluationError(f"Неизвестная константа: {name}")
-        return self.constants[name]
+        """Вычисляет постфиксное константное выражение."""
+        return evaluate_postfix(items, self.constants)
 
     def number(self, items: list[Any]) -> float:
         """Преобразует токен NUMBER в число с плавающей точкой."""
