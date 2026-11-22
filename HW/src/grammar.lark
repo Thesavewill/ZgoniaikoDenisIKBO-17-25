@@ -23,7 +23,7 @@ pair: NAME "=>" value
 number: NUMBER
 
 OP: "+" | "-" | "*" | "/"
-FUNC: "sqrt()" | "pow()"
+FUNC.2: "sqrt()" | "pow()"
 NAME: /[_a-zA-Z][a-zA-Z0-9]*/
 NUMBER: /\d+\.\d*/
 
