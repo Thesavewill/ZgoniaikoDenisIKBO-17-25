@@ -53,9 +53,9 @@ class ConfigTransformer(Transformer):
         """Преобразует пару ключ-значение в кортеж."""
         return (str(items[0]), items[1])
 
-    def table(self, items: list[tuple[str, Any]]) -> dict[str, Any]:
+    def table(self, items: list[Any]) -> dict[str, Any]:
         """Преобразует список пар ключ-значение в словарь."""
-        return dict(items)
+        return dict(item for item in items if item is not None)
 
 
 def build_parser() -> Lark:
